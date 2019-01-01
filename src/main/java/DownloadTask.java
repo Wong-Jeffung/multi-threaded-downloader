@@ -1,8 +1,11 @@
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.log4j.Logger;
 
 public class DownloadTask {
+    private static  final Logger logger = Logger.getLogger(DownloadTask.class);
+
     private URL url;
     private boolean resumable;
     private int fileSize = 0;
@@ -65,8 +68,8 @@ public class DownloadTask {
         }
 
         long timeSpend = System.currentTimeMillis() - startTime;
-        System.out.println("文件下载成功");
-        System.out.println(String.format("花费时间: %.3f s, 平均速度: %d KB/s",
+        logger.info("文件下载成功");
+        logger.info(String.format("花费时间: %.3f s, 平均速度: %d KB/s",
                 timeSpend / 1000.0, (downloadedBytes.get() >> 10)  / (timeSpend / 1000)));
 
         mergeTempFile();
@@ -81,15 +84,15 @@ public class DownloadTask {
             fileSize = conn.getContentLength();
             resCode = conn.getResponseCode();
         }catch (ConnectException e){
-            System.out.println("http连接出问题");
+            logger.error("http连接出问题");
         }finally {
             conn.disconnect();
         }
         if(resCode == 206){
-            System.out.println("该文件支持断点续传");
+            logger.info("该文件支持断点续传");
             return true;
         }else{
-            System.out.println("该文件不支持断点续传");
+            logger.info("该文件不支持断点续传");
             return false;
         }
     }
@@ -105,7 +108,7 @@ public class DownloadTask {
                     e.printStackTrace();
                 }
                 currDownloads = downloadedBytes.get();
-                System.out.println(String.format("速度: %d KB/s,以下载: %d KB (%.2f%%),存在线程: %d",
+                logger.info(String.format("速度: %d KB/s,以下载: %d KB (%.2f%%),存在线程: %d",
                         (currDownloads - preDownloads) >> 10,currDownloads >> 10,currDownloads / (float)fileSize * 100,aliveDownLoadThreads.get()));
 
                 preDownloads = currDownloads;
@@ -168,10 +171,10 @@ public class DownloadTask {
                    e.printStackTrace();
                }
                if(success){
-                   System.out.println("已下载第" + id + "部分");
+                   logger.info("已下载第" + id + "部分");
                    break;
                }else{
-                   System.out.println("重新下载第" + id + "部分");
+                   logger.info("重新下载第" + id + "部分");
                }
            }
            aliveDownLoadThreads.decrementAndGet();
@@ -201,7 +204,7 @@ public class DownloadTask {
                }
                outputStream.close();
             }catch(SocketTimeoutException e) {
-                System.out.println("Part" + (id) + " Reading timeout.");
+                logger.error("Part" + (id) + " Reading timeout.");
                 return false;
             } catch (InterruptedException e) {
                 e.printStackTrace();
