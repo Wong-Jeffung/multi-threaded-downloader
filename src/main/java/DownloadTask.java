@@ -17,7 +17,7 @@ public class DownloadTask {
     private AtomicInteger aliveDownLoadThreads = new AtomicInteger(0);
     private int THREAD_NUM = 5;
     private int TIME_OUT = 5000;
-    private File TEMP_FILE = new File("D:/temp");
+    private File TEMP_FILE = new File("/home/linuxprobe/temp");
     //private final int MIN_SIZE = 2 << 20;
 
     public DownloadTask(String url, String localPath) throws MalformedURLException {
