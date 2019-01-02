@@ -1,10 +1,11 @@
 import java.io.IOException;
+import java.util.ResourceBundle;
 
 public class Main {
     public static void main(String[] args) throws IOException {
-        String url = "http://mirrors.163.com/debian/ls-lR.gz";
-        //DownloadTask downloadTask = new DownloadTask(url,"D:/target/ls-lR.gz",5,5000);
-        DownloadTask downloadTask = new DownloadTask(url,"/home/linuxprobe/target/ls-lR.gz",5,5000);
+        ResourceBundle resource = ResourceBundle.getBundle("config");
+        DownloadTask downloadTask = new DownloadTask(resource.getString("url"),resource.getString("localPath"),resource.getString("tempPath"),
+                Integer.parseInt(resource.getString("threadNum")),Integer.parseInt(resource.getString("timeOut")),Integer.parseInt(resource.getString("sleepTime")));
         downloadTask.startDownload();
     }
 }

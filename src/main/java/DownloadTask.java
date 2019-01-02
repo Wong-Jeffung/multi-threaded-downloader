@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.log4j.Logger;
 
 public class DownloadTask {
-    private static  final Logger logger = Logger.getLogger(DownloadTask.class);
+    private static  final Logger LOGGER = Logger.getLogger(DownloadTask.class);
 
     private URL url;
     private boolean resumable;
@@ -15,21 +15,26 @@ public class DownloadTask {
     private final Object  lockProvider = new Object();
     private AtomicInteger downloadedBytes = new AtomicInteger(0);
     private AtomicInteger aliveDownLoadThreads = new AtomicInteger(0);
-    private int THREAD_NUM = 5;
-    private int TIME_OUT = 5000;
-    private File TEMP_FILE = new File("/home/linuxprobe/temp");
+    private int threadNum = 5;
+    private int timeOut = 5000;
+    private File tempFile = new File("/home/linuxprobe/temp");
+    private int sleepTime;//睡眠时间，用于限速
     //private final int MIN_SIZE = 2 << 20;
 
-    public DownloadTask(String url, String localPath) throws MalformedURLException {
+    public DownloadTask(String url, String localPath, String tempPath, int sleepTime) throws MalformedURLException {
         this.url = new URL(url);
         this.localFile = new File(localPath);
+        this.tempFile = new File(tempPath);
+        this.sleepTime = sleepTime;
     }
 
-    public DownloadTask(String url, String localPath, int threadNum, int timeOut) throws MalformedURLException {
+    public DownloadTask(String url, String localPath, String tempPath, int threadNum, int timeOut, int sleepTime) throws MalformedURLException {
         this.url = new URL(url);
         this.localFile = new File(localPath);
-        this.THREAD_NUM = threadNum;
-        this.TIME_OUT = timeOut;
+        this.tempFile = new File(tempPath);
+        this.threadNum = threadNum;
+        this.timeOut = timeOut;
+        this.sleepTime = sleepTime;
     }
 
     //开始下载
@@ -37,17 +42,17 @@ public class DownloadTask {
         long startTime = System.currentTimeMillis();
 
         resumable = supportResumeDownload();
-        if (!resumable || THREAD_NUM == 1) {
+        if (!resumable || threadNum == 1) {
             multithreaded = false;
         }
         if (multithreaded) {
-            downLoadRange = new int[THREAD_NUM + 1];
-            int partSize = fileSize / THREAD_NUM;
-            for(int i = 0;i < THREAD_NUM;i++){
+            downLoadRange = new int[threadNum + 1];
+            int partSize = fileSize / threadNum;
+            for(int i = 0; i < threadNum; i++){
                 downLoadRange[i] = i * partSize;
             }
-            downLoadRange[THREAD_NUM] = fileSize;
-            for(int i = 0;i < THREAD_NUM;i++){
+            downLoadRange[threadNum] = fileSize;
+            for(int i = 0; i < threadNum; i++){
                 new downLoadThread(i+1,downLoadRange[i],downLoadRange[i+1] - 1).start();
                 aliveDownLoadThreads.addAndGet(1);
             }
@@ -68,8 +73,8 @@ public class DownloadTask {
         }
 
         long timeSpend = System.currentTimeMillis() - startTime;
-        logger.info("文件下载成功");
-        logger.info(String.format("花费时间: %.3f s, 平均速度: %d KB/s",
+        LOGGER.info("文件下载成功");
+        LOGGER.info(String.format("花费时间: %.3f s, 平均速度: %d KB/s",
                 timeSpend / 1000.0, (downloadedBytes.get() >> 10)  / (timeSpend / 1000)));
 
         mergeTempFile();
@@ -84,15 +89,15 @@ public class DownloadTask {
             fileSize = conn.getContentLength();
             resCode = conn.getResponseCode();
         }catch (ConnectException e){
-            logger.error("http连接出问题");
+            LOGGER.error("http连接出问题");
         }finally {
             conn.disconnect();
         }
         if(resCode == 206){
-            logger.info("该文件支持断点续传");
+            LOGGER.info("该文件支持断点续传");
             return true;
         }else{
-            logger.info("该文件不支持断点续传");
+            LOGGER.info("该文件不支持断点续传");
             return false;
         }
     }
@@ -108,7 +113,7 @@ public class DownloadTask {
                     e.printStackTrace();
                 }
                 currDownloads = downloadedBytes.get();
-                logger.info(String.format("速度: %d KB/s,以下载: %d KB (%.2f%%),存在线程: %d",
+                LOGGER.info(String.format("速度: %d KB/s,以下载: %d KB (%.2f%%),存在线程: %d",
                         (currDownloads - preDownloads) >> 10,currDownloads >> 10,currDownloads / (float)fileSize * 100,aliveDownLoadThreads.get()));
 
                 preDownloads = currDownloads;
@@ -134,8 +139,8 @@ public class DownloadTask {
             OutputStream outputStream = new FileOutputStream(localFile);
             byte[] buffer = new byte[1024];
             int partSize;
-            for(int i = 0; i < THREAD_NUM;i++){
-                InputStream inputStream = new FileInputStream(TEMP_FILE.getAbsolutePath() + "/" + "temp" + (i+1) + ".tmp");
+            for(int i = 0; i < threadNum; i++){
+                InputStream inputStream = new FileInputStream(tempFile.getAbsolutePath() + "/" + "temp" + (i+1) + ".tmp");
                 while((partSize = inputStream.read(buffer)) != -1){
                     outputStream.write(buffer,0,partSize);
                     outputStream.flush();
@@ -171,10 +176,10 @@ public class DownloadTask {
                    e.printStackTrace();
                }
                if(success){
-                   logger.info("已下载第" + id + "部分");
+                   LOGGER.info("已下载第" + id + "部分");
                    break;
                }else{
-                   logger.info("重新下载第" + id + "部分");
+                   LOGGER.info("重新下载第" + id + "部分");
                }
            }
            aliveDownLoadThreads.decrementAndGet();
@@ -183,15 +188,15 @@ public class DownloadTask {
         private boolean downLoad() throws IOException {
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestProperty("Range",String.format("bytes=%d-%d",beginByte,endByte));
-            conn.setConnectTimeout(TIME_OUT);
-            conn.setReadTimeout(TIME_OUT);
+            conn.setConnectTimeout(timeOut);
+            conn.setReadTimeout(timeOut);
             try{
                 conn.connect();
                 int partSize = conn.getHeaderFieldInt("Content-Length", -1);
                 if(partSize != endByte - beginByte + 1){
                     return false;
                 }
-               outputStream = new FileOutputStream(TEMP_FILE.getAbsolutePath() + "/" + "temp" + id + ".tmp");
+               outputStream = new FileOutputStream(tempFile.getAbsolutePath() + "/" + "temp" + id + ".tmp");
                inputStream = conn.getInputStream();
                byte[] buffer = new byte[1024];
                int size;
@@ -200,11 +205,11 @@ public class DownloadTask {
                    downloadedBytes.addAndGet(size);
                    outputStream.write(buffer,0,size);
                    outputStream.flush();
-                   Thread.sleep(20);//实现限速。。
+                   Thread.sleep(sleepTime);//实现限速。。
                }
                outputStream.close();
             }catch(SocketTimeoutException e) {
-                logger.error("Part" + (id) + " Reading timeout.");
+                LOGGER.error("Part" + (id) + " Reading timeout.");
                 return false;
             } catch (InterruptedException e) {
                 e.printStackTrace();
