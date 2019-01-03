@@ -75,7 +75,7 @@
 
   - 在测试的过程中，当出现Connection reset的异常时，根据下载失败会重新下载的策略，会开始重新下载，但是还没真正下载完全时，便提示下载成功，初步判断的原因是，在判断某一段是否下载成功时，是根据下载量是否到达endByte(也就是上面downloadRange[i+1] - 1)，所以当重新下载时，本应该从头beginByte开始计算，但其实代码中beginByte这时候的值是上次下载所到达的值。这就造成明明没下载完全，却提示下载成功，这里需要改进。
 
-    ![连接重置后下载不完整](C:\Users\asus\Desktop\连接重置后下载不完整.jpg)
+    ![连接重置后下载不完整](https://github.com/Wong-Jeffung/img-folder/blob/master/multi-threaded-downloader-imgs/%E8%BF%9E%E6%8E%A5%E9%87%8D%E7%BD%AE%E5%90%8E%E4%B8%8B%E8%BD%BD%E4%B8%8D%E5%AE%8C%E6%95%B4.jpg)
 
 
 
