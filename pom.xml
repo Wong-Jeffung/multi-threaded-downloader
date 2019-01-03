@@ -47,6 +47,7 @@
                 <version>2.5.5</version>
                 <configuration>
                     <archive>
+                        #mainClass标签中是程序运行的入口，因为这里Main.class并没有在任何包路径下，所以直接写
                         <manifest>
                             <mainClass>Main</mainClass>
                         </manifest>

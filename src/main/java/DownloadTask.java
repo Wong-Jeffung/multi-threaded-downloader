@@ -17,7 +17,7 @@ public class DownloadTask {
     private AtomicInteger aliveDownLoadThreads = new AtomicInteger(0);
     private int threadNum = 5;
     private int timeOut = 5000;
-    private File tempFile = new File("/home/linuxprobe/temp");
+    private File tempFile;
     private int sleepTime;//睡眠时间，用于限速
     //private final int MIN_SIZE = 2 << 20;
 
@@ -64,6 +64,7 @@ public class DownloadTask {
 
         startDownLoadMonitor(); //守护线程
 
+        //主线程得到lockProvider的锁后进入try部分，当lockProvider.wait()时，主线程的锁被释放，无法继续执行，等待lockProvider再次提供锁
         try {
             synchronized (lockProvider) {
                 lockProvider.wait();
@@ -118,6 +119,7 @@ public class DownloadTask {
 
                 preDownloads = currDownloads;
 
+                //当下载线程数为0时说明下载任务结束，守护线程通过notifyAll()唤醒在等待lockProvider的锁的主线程，使主线程接着运行
                 if(aliveDownLoadThreads.get() == 0){
                     synchronized (lockProvider){
                         lockProvider.notifyAll();
